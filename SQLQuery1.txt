@@ -1,0 +1,175 @@
+
+CREATE DATABASE Clinica
+GO
+USE Clinica
+GO
+CREATE TABLE Planos(
+codigo		INT			NOT NULL,
+nome		VARCHAR(50)	NOT NULL,
+telefone	CHAR(8)		NOT NULL
+PRIMARY KEY (codigo))
+GO
+INSERT INTO Planos VALUES
+(1234,'Amil','41599856'),
+(2345,'Sul América','45698745'),
+(3456,'Unimed','48759836'),
+(4567,'Bradesco Saúde','47265897'),
+(5678,'Intermédica','41415269')
+GO
+CREATE TABLE Paciente(
+cpf			CHAR(11)	NOT NULL,
+nome		VARCHAR(50)	NOT NULL,
+rua			VARCHAR(50)	NOT NULL,
+numero		INT			NOT NULL,
+bairro		VARCHAR(30)	NOT NULL,
+telefone	CHAR(8)		NOT NULL,
+plano		INT			NOT NULL
+PRIMARY KEY (cpf)
+FOREIGN KEY (plano) REFERENCES Planos(codigo))
+GO
+INSERT INTO Paciente VALUES
+('85987458920','Maria Paula','R. Voluntários da Pátria',589,'Santana','98458741',2345),
+('87452136900','Ana Julia','R. XV de Novembro',657,'Centro','69857412',5678),
+('23659874100','João Carlos','R. Sete de Setembro',12,'República','74859632',1234),
+('63259874100','José Lima','R. Anhaia',768,'Barra Funda','96524156',2345),
+('28897858700','Durval Lima','R. Piracicaba',1245,'Centro','92345678',1234)
+GO
+CREATE TABLE Medico(
+codigo			INT			NOT NULL,
+nome			VARCHAR(50)	NOT NULL,
+especialidade	VARCHAR(30)	NOT NULL,
+plano			INT
+PRIMARY KEY (codigo)
+FOREIGN KEY (plano) REFERENCES Planos(codigo))
+GO
+INSERT INTO Medico VALUES 
+(1,	'Claudio',	'Clínico Geral',	1234),
+(2,	'Larissa',	'Ortopedista',	2345),
+(3,	'Juliana',	'Otorrinolaringologista',	4567),
+(4,	'Sérgio',	'Pediatra',	1234),
+(5,	'Julio',	'Clínico Geral',	4567),
+(6,	'Samara',	'Cirurgião',	1234)
+GO
+CREATE TABLE Consulta(
+medico		INT			NOT NULL,
+paciente	CHAR(11)	NOT NULL,		
+data_hora	DATETIME	NOT NULL,
+diagnostico	VARCHAR(20)	NOT NULL
+PRIMARY KEY (medico, paciente, data_hora)
+FOREIGN KEY (medico) REFERENCES Medico(codigo),
+FOREIGN KEY (paciente) REFERENCES Paciente(cpf))
+GO
+INSERT INTO Consulta  VALUES 
+(1,	'85987458920',	'2021-02-10 10:30',	'Gripe'),
+(2,	'23659874100',	'2021-02-10 11:00',	'Pé Fraturado'),
+(4,	'85987458920',	'2021-02-11 14:00',	'Pneumonia'),
+(2,	'23659874100',	'2021-02-11 15:00',	'Asma'),
+(3,	'87452136900',	'2021-02-11 16:00',	'Sinusite'),
+(5,	'63259874100',	'2021-02-11 17:00',	'Rinite'),
+(4,	'23659874100',	'2021-02-11 18:00',	'Asma'),
+(5,	'63259874100',	'2021-02-12 10:00',	'Rinoplastia')
+
+select* from Consulta
+select* from Medico
+select* from Paciente
+select* from Planos
+
+--Consultar nome e  especialidade dos medicos da Amil
+select Medico.nome, Medico.especialidade
+from Medico 
+where Medico.plano= (select codigo 
+from Planos
+where nome = 'Amil'
+)
+--view
+create view vw_consulta_medicos_amil
+as select Medico.nome, Medico.especialidade
+from Medico 
+where Medico.plano= (select codigo 
+from Planos
+where nome = 'Amil'
+)
+
+
+--Consultar planos de saude que não tem medicos cadastrados
+select Planos.nome as planos, Medico.nome as medicos
+from Planos left outer join Medico
+on planos.codigo=Medico.plano
+where Medico.nome is null
+--view
+create view vw_planos_sem_medicos
+as select Planos.nome as planos, Medico.nome as medicos
+from Planos left outer join Medico
+on planos.codigo=Medico.plano
+where Medico.nome is null
+
+
+--data e hora da consulta, nome do medico, nome do paciente e diagnostico de todas as consultas
+select convert(varchar,Consulta.data_hora , 100)as data_consulta, Consulta.diagnostico, Medico.nome as medico,Paciente.nome as paciente
+from Consulta inner join Paciente 
+on consulta.paciente =Paciente.cpf 
+inner join Medico on Medico.codigo= Consulta.medico
+--view
+create view vw_dados_paciente_medico_consulta
+as select convert(varchar,Consulta.data_hora , 100)as data_consulta, Consulta.diagnostico, Medico.nome as medico,Paciente.nome as paciente
+from Consulta inner join Paciente 
+on consulta.paciente =Paciente.cpf 
+inner join Medico on Medico.codigo= Consulta.medico
+
+
+
+--Consultar, caso o nome do plano tenha 7 ou mais caracteres escrever apenas os 8 primeiros --caracteres, 
+--o nome dos planos de saúde sem pacientes cadastrados no sistema.
+select substring (Planos.nome,1,8)+ '...' as Planos
+from Planos left outer join Paciente
+on Planos.codigo = Paciente.plano
+where  Paciente.nome is null
+--view
+create view vw_consulta_planos_sem_pacientes
+as select substring (Planos.nome,1,8)+ '...' as Planos
+from Planos left outer join Paciente
+on Planos.codigo = Paciente.plano
+where  Paciente.nome is null
+
+
+--Consultar nome do paciente e quantos dias tem cada consulta que está no sistema.
+--A coluna dos dias deve chamar tempo_da_ultima_consulta_dias
+--A saída deve ser ordenada descrescentemente pelos dias e pelo nome do paciente
+select Paciente.nome, Consulta.data_hora, datediff(day,Consulta.data_hora, getdate()) as tempo_da_ultima_consulta_dias
+from Paciente inner join Consulta
+on paciente.cpf = Consulta.paciente
+order by tempo_da_ultima_consulta_dias, Paciente.nome desc
+--view
+create view vw_consulta_quantos_dias_passaram_consulta
+as select Paciente.nome, Consulta.data_hora, datediff(day,Consulta.data_hora, getdate()) as tempo_da_ultima_consulta_dias
+from Paciente inner join Consulta
+on paciente.cpf = Consulta.paciente
+
+
+--Consultar o nome do plano de saude e quantos pacientes tem por plano
+select Planos.nome, count(Paciente.plano)as quantidade_clientes
+from Planos left outer join Paciente
+on Planos.codigo = Paciente.plano
+group by Planos.nome
+order by quantidade_clientes
+--view
+create view vw_consulta_quantos_pacientes_por_plano
+as select Planos.nome, count(Paciente.plano)as quantidade_clientes
+from Planos left outer join Paciente
+on Planos.codigo = Paciente.plano
+group by Planos.nome
+
+
+--Consulta nome e telefone dos pacientes cadastrados que não passaram em consulta
+select paciente.nome, paciente.telefone, Paciente.cpf 
+from Paciente left outer join consulta
+on Paciente.cpf=Consulta.paciente
+where consulta.paciente is null
+--view
+CREATE VIEW vw_pacientes_nao_passaram_em_consulta
+as select paciente.nome, paciente.telefone, Paciente.cpf 
+from Paciente left outer join consulta
+on Paciente.cpf=Consulta.paciente
+where consulta.paciente is null
+
+
